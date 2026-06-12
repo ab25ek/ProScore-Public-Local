@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ProScore</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Open+Sans+Condensed:wght@300;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+
+  <!-- ══ HEADER ══ -->
+  <header class="app-header">
+    <div class="logo">
+      <span class="logo-ps">PS</span>
+      <span class="logo-pro">PRO</span><span class="logo-score">SCORE</span>
+    </div>
+    <button class="btn-scrape" id="btnScrape" title="Auto-fill from current page">⚡ Scrape Page</button>
+  </header>
+  <div class="scrape-status" id="scrapeStatus"></div>
+
+  <!-- ══ VIEWS ══ -->
+  <div class="views" id="views">
+
+    <!-- ── VIEW: FORM ── -->
+    <div class="view active" id="viewForm">
+
+      <!-- SELECT PRODUCT -->
+      <section class="section">
+        <h2 class="section-title">SELECT PRODUCT</h2>
+
+        <label class="field-label">BRAND</label>
+        <div class="brand-wrap">
+          <input class="field-input" id="fBrand" type="text" placeholder="Type or pick…" autocomplete="off">
+          <div class="brand-dropdown hidden" id="brandDropdown"></div>
+        </div>
+
+        <label class="field-label">PRODUCT</label>
+        <input class="field-input" id="fProduct" type="text" placeholder="">
+      </section>
+
+      <!-- PRICE & WEIGHT -->
+      <section class="section">
+        <h2 class="section-title">PRICE &amp; WEIGHT</h2>
+        <div class="field-row">
+          <div class="field-col">
+            <label class="field-label">TOTAL WEIGHT <span class="unit">g</span></label>
+            <input class="field-input" id="fWeight" type="number" min="0" placeholder="e.g. 1000">
+          </div>
+          <div class="field-col">
+            <label class="field-label">TOTAL PRICE <span class="unit">₹</span></label>
+            <input class="field-input" id="fPrice" type="number" min="0" placeholder="e.g. 2499">
+          </div>
+        </div>
+      </section>
+
+      <!-- NUTRITION -->
+      <section class="section">
+        <h2 class="section-title">NUTRITION <span class="section-note">— enter from label image</span></h2>
+        <div class="field-row">
+          <div class="field-col">
+            <label class="field-label">PROTEIN / SERVING <span class="unit">g</span></label>
+            <input class="field-input needs-input" id="fProtein" type="number" min="0" placeholder="e.g. 24">
+          </div>
+          <div class="field-col">
+            <label class="field-label">SERVING SIZE <span class="unit">g</span></label>
+            <input class="field-input needs-input" id="fServing" type="number" min="0" placeholder="e.g. 30">
+          </div>
+        </div>
+      </section>
+
+      <!-- ACTIONS -->
+      <div class="form-actions">
+        <button class="btn-primary" id="btnCalc">Save &amp; Calculate</button>
+        <button class="btn-secondary" id="btnClear">Clear</button>
+      </div>
+
+    </div><!-- /viewForm -->
+
+    <!-- ── VIEW: SCORE ── -->
+    <div class="view" id="viewScore">
+
+      <div class="score-header">
+        <button class="btn-back" id="btnBackToForm">← Edit</button>
+        <div class="saved-name" id="savedName"></div>
+      </div>
+
+      <!-- Main ProScore -->
+      <div class="score-main">
+        <div class="score-title-row">
+          <span class="score-logo-pro">PRO</span><span class="score-logo-score">SCORE</span>
+        </div>
+        <div class="score-big" id="proScoreVal">—</div>
+        <div class="score-grade" id="proScoreGrade">—</div>
+      </div>
+
+      <!-- Sub scores -->
+      <div class="sub-scores">
+        <div class="sub-card">
+          <div class="sub-label"><span class="bold">PROTEIN</span>SCORE</div>
+          <div class="sub-val" id="proteinScoreVal">—</div>
+          <div class="sub-grade" id="proteinScoreGrade">—</div>
+        </div>
+        <div class="sub-card">
+          <div class="sub-label"><span class="bold">VALUE</span>SCORE</div>
+          <div class="sub-val" id="valueScoreVal">—</div>
+          <div class="sub-grade" id="valueScoreGrade">—</div>
+        </div>
+      </div>
+
+      <div class="score-note" id="scoreNote"></div>
+
+      <button class="btn-primary full" id="btnShowLB">Show Leaderboard</button>
+      <button class="btn-secondary full" id="btnNewProduct">Add Another Product</button>
+
+    </div><!-- /viewScore -->
+
+    <!-- ── VIEW: LEADERBOARD ── -->
+    <div class="view" id="viewLB">
+
+      <div class="lb-header">
+        <div class="lb-title-row">
+          <span class="score-logo-pro">PRO</span><span class="score-logo-score">SCORE</span>
+          <span class="lb-subtitle">— Top 20</span>
+        </div>
+        <div class="lb-actions">
+          <button class="btn-danger-sm" id="btnClearAll">Clear All</button>
+          <button class="btn-back" id="btnBackFromLB">← Back</button>
+        </div>
+      </div>
+
+      <div class="lb-scroll" id="lbScroll">
+        <table class="lb-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>PRODUCT</th>
+              <th>P</th>
+              <th>V</th>
+              <th><span class="bold">PRO</span></th>
+              <th>SITE</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="lbBody"></tbody>
+        </table>
+      </div>
+
+    </div><!-- /viewLB -->
+
+  </div><!-- /views -->
+
+  <div class="toast" id="toast"></div>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>
