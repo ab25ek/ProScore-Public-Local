@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ProScore</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Special+Gothic+Expanded+One&family=Open+Sans:wght@400;600;700;800&family=Open+Sans+Condensed:wght@300;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+
+  <!-- ══ STICKY TOP ══ -->
+  <div class="sticky-top">
+
+    <!-- Header -->
+    <header class="app-header">
+      <div class="logo">
+        <span class="logo-ps">PS</span>
+        <span class="logo-pro">PRO</span><span class="logo-score">SCORE</span>
+      </div>
+      <button class="btn-scrape" id="btnScrape">⚡ Scrape Page</button>
+    </header>
+
+    <!-- Scrape status bar -->
+    <div class="scrape-bar" id="scrapeStatus"></div>
+
+    <!-- Tab nav -->
+    <nav class="tab-nav">
+
+      <button class="tab-btn" id="tabCalc" data-view="viewCalc">
+        <span class="tab-dot" id="dotCalc"></span>
+        <span class="tab-label">Calculate</span>
+      </button>
+
+      <div class="tab-connector">
+        <svg class="connector-svg" viewBox="0 0 44 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <line x1="0" y1="6" x2="36" y2="6" class="connector-line" id="connectorLine" stroke-width="1.5"/>
+          <polyline points="28,1 36,6 28,11" class="connector-line" id="connectorHead" stroke-width="1.5" fill="none"/>
+        </svg>
+      </div>
+
+      <button class="tab-btn" id="tabScore" data-view="viewScore">
+        <span class="tab-dot" id="dotScore"></span>
+        <span class="tab-label">ScoreCard</span>
+      </button>
+
+      <div class="tab-sep"></div>
+
+      <button class="tab-btn" id="tabLB" data-view="viewLB">
+        <span class="tab-dot" id="dotLB"></span>
+        <span class="tab-label">LeaderBoard</span>
+      </button>
+
+    </nav>
+
+  </div><!-- /sticky-top -->
+
+  <!-- ══ VIEWS ══ -->
+  <div class="views">
+
+    <!-- ── VIEW 1: CALCULATE ── -->
+    <div class="view active" id="viewCalc">
+
+      <!-- Whey-only dismissible notice -->
+      <div class="whey-notice hidden" id="wheyNotice">
+        <span class="whey-notice-text">⚠ ProScore is designed for whey protein only — results may not be meaningful for other types.</span>
+        <button class="whey-notice-close" id="btnDismissNotice" aria-label="Dismiss">✕</button>
+      </div>
+
+      <section class="section">
+        <h2 class="section-title">SELECT PRODUCT</h2>
+        <label class="field-label">BRAND</label>
+        <div class="brand-wrap">
+          <input class="field-input" id="fBrand" type="text" placeholder="Type or pick…" autocomplete="off">
+          <div class="brand-dropdown hidden" id="brandDropdown"></div>
+        </div>
+        <label class="field-label">PRODUCT</label>
+        <input class="field-input" id="fProduct" type="text" placeholder="">
+      </section>
+
+      <section class="section">
+        <h2 class="section-title">PRICE &amp; WEIGHT</h2>
+        <div class="field-row">
+          <div class="field-col">
+            <label class="field-label">TOTAL WEIGHT <span class="unit">g</span></label>
+            <input class="field-input" id="fWeight" type="number" min="0" placeholder="e.g. 1000">
+          </div>
+          <div class="field-col">
+            <label class="field-label">TOTAL PRICE <span class="unit">₹</span></label>
+            <input class="field-input" id="fPrice" type="number" min="0" placeholder="e.g. 2499">
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title">NUTRITION <span class="section-note">— enter from label</span></h2>
+        <div class="field-row">
+          <div class="field-col">
+            <label class="field-label">PROTEIN / SERVING <span class="unit">g</span></label>
+            <input class="field-input needs-input" id="fProtein" type="number" min="0" placeholder="e.g. 24">
+          </div>
+          <div class="field-col">
+            <label class="field-label">SERVING SIZE <span class="unit">g</span></label>
+            <input class="field-input needs-input" id="fServing" type="number" min="0" placeholder="e.g. 30">
+          </div>
+        </div>
+      </section>
+
+      <div class="form-actions">
+        <button class="btn-primary" id="btnCalc">Save &amp; Calculate</button>
+        <button class="btn-secondary" id="btnClear">Clear</button>
+      </div>
+
+    </div><!-- /viewCalc -->
+
+    <!-- ── VIEW 2: SCORECARD ── -->
+    <div class="view" id="viewScore">
+
+      <div class="sc-meta" id="scMeta">
+        <div class="sc-empty" id="scEmpty">No product calculated yet — use the Calculate tab.</div>
+        <div class="sc-data hidden" id="scData">
+          <div class="sc-row-top">
+            <div class="sc-name" id="scName"></div>
+            <div class="sc-rank" id="scRankBadge"></div>
+          </div>
+          <div class="sc-pills">
+            <span class="sc-pill" id="scPillWeight"></span>
+            <span class="sc-pill" id="scPillPrice"></span>
+            <a class="sc-pill sc-pill-link" id="scPillLink" href="#" target="_blank">🔗 View Product</a>
+          </div>
+          <div class="sc-dataset" id="scDataset"></div>
+        </div>
+      </div>
+
+      <!-- ProScore main -->
+      <div class="score-main" id="scoreMain">
+        <div class="score-noise"></div>
+        <div class="score-logo-row">
+          <span class="slr-pro">PRO</span><span class="slr-score">SCORE</span>
+        </div>
+        <div class="score-big" id="proScoreVal">—</div>
+        <div class="score-grade" id="proScoreGrade">—</div>
+      </div>
+
+      <!-- Sub scores -->
+      <div class="sub-scores">
+        <div class="sub-card">
+          <div class="sub-label"><span class="sub-bold">PROTEIN</span>SCORE</div>
+          <div class="sub-val" id="proteinScoreVal">—</div>
+          <div class="sub-grade" id="proteinScoreGrade">—</div>
+        </div>
+        <div class="sub-card">
+          <div class="sub-label"><span class="sub-bold">VALUE</span>SCORE</div>
+          <div class="sub-val" id="valueScoreVal">—</div>
+          <div class="sub-grade" id="valueScoreGrade">—</div>
+        </div>
+      </div>
+
+      <button class="btn-secondary full mt8" id="btnNewProduct">+ Add Another Product</button>
+
+    </div><!-- /viewScore -->
+
+    <!-- ── VIEW 3: LEADERBOARD ── -->
+    <div class="view" id="viewLB">
+
+      <div class="lb-topbar">
+        <div class="lb-logo-row">
+          <span class="slr-pro">PRO</span><span class="slr-score">SCORE</span>
+          <span class="lb-count" id="lbCount"></span>
+        </div>
+        <button class="btn-danger-sm" id="btnClearAll">Clear All</button>
+      </div>
+
+      <div class="lb-scroll">
+        <table class="lb-table">
+          <thead>
+            <tr>
+              <th class="th-rank">#</th>
+              <th class="th-name">PRODUCT</th>
+              <th class="th-sortable" data-col="proteinScore" id="thProtein">
+                PROTEIN <span class="sort-icon">↕</span>
+              </th>
+              <th class="th-sortable" data-col="valueScore" id="thValue">
+                VALUE <span class="sort-icon">↕</span>
+              </th>
+              <th class="th-sortable th-pro" data-col="proScore" id="thPro">
+                <span class="th-bold">PRO</span>SCORE <span class="sort-icon">↓</span>
+              </th>
+              <th class="th-site">SITE</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="lbBody"></tbody>
+        </table>
+      </div>
+
+    </div><!-- /viewLB -->
+
+  </div><!-- /views -->
+
+  <!-- Whey warning modal -->
+  <div class="modal-overlay hidden" id="wheyModal">
+    <div class="modal-box">
+      <div class="modal-icon">⚠</div>
+      <div class="modal-title">Not Whey Protein?</div>
+      <div class="modal-body" id="wheyModalBody">This product doesn't appear to be a whey protein. ProScore is optimized for whey — results may not be meaningful for other types.</div>
+      <div class="modal-actions">
+        <button class="btn-primary" id="btnWheyConfirm">Add anyway</button>
+        <button class="btn-secondary" id="btnWheyCancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <script src="sidepanel.js"></script>
+</body>
+</html>
