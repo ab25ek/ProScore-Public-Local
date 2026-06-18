@@ -45,7 +45,7 @@ Enable **Developer mode** using the toggle in the top-right corner.
 ### 3. Load the extension
 
 1. Click **Load unpacked**
-2. Select the **`ProScore v4`** folder from the downloaded files
+2. Select the **`ProScore v5`** folder from the downloaded files
 3. ProScore icon appears in your Chrome toolbar — done.
 
 ---
