@@ -1,4 +1,4 @@
-// sidepanel.js v4
+// sidepanel.js v5
 
 // ── GRADE COLOUR MAP ─────────────────────────────────────────
 const GRADE_COLOR = {
@@ -17,8 +17,9 @@ let pendingScrape  = null;
 let formDirty      = false;
 let sortCol        = 'proScore';
 let sortDir        = -1;
-let newlyAddedId   = null;   // highlights this row on the leaderboard
-let pendingSaveFn  = null;   // set while whey modal is open
+let newlyAddedId   = null;
+let pendingSaveFn  = null;
+let nameExpanded   = false;
 
 // ── DOM ───────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -30,19 +31,19 @@ const fPrice   = $('fPrice');
 const fProtein = $('fProtein');
 const fServing = $('fServing');
 
-const brandDropdown  = $('brandDropdown');
-const btnScrape      = $('btnScrape');
-const btnCalc        = $('btnCalc');
-const btnClear       = $('btnClear');
-const btnNewProduct  = $('btnNewProduct');
-const btnClearAll    = $('btnClearAll');
-const scrapeBar      = $('scrapeStatus');
+const brandDropdown    = $('brandDropdown');
+const btnScrape        = $('btnScrape');
+const btnCalc          = $('btnCalc');
+const btnClear         = $('btnClear');
+const btnNewProduct    = $('btnNewProduct');
+const btnClearAll      = $('btnClearAll');
+const scrapeBar        = $('scrapeStatus');
 
-const wheyNotice        = $('wheyNotice');
-const btnDismissNotice  = $('btnDismissNotice');
-const wheyModal         = $('wheyModal');
-const btnWheyConfirm    = $('btnWheyConfirm');
-const btnWheyCancel     = $('btnWheyCancel');
+const wheyNotice       = $('wheyNotice');
+const btnDismissNotice = $('btnDismissNotice');
+const wheyModal        = $('wheyModal');
+const btnWheyConfirm   = $('btnWheyConfirm');
+const btnWheyCancel    = $('btnWheyCancel');
 
 const tabCalc  = $('tabCalc');
 const tabScore = $('tabScore');
@@ -54,11 +55,12 @@ const proteinScoreVal   = $('proteinScoreVal');
 const proteinScoreGrade = $('proteinScoreGrade');
 const valueScoreVal     = $('valueScoreVal');
 const valueScoreGrade   = $('valueScoreGrade');
-const scoreMain         = $('scoreMain');
+const scoreShell        = $('scoreShell');
 
 const scEmpty      = $('scEmpty');
 const scData       = $('scData');
 const scName       = $('scName');
+const scNameToggle = $('scNameToggle');
 const scRankBadge  = $('scRankBadge');
 const scPillPrice  = $('scPillPrice');
 const scPillWeight = $('scPillWeight');
@@ -118,9 +120,9 @@ function setupListeners() {
     f.addEventListener('input', () => { formDirty = true; updateTabState(currentView()); });
   });
 
-  fBrand.addEventListener('input',  onBrandInput);
-  fBrand.addEventListener('focus',  onBrandInput);
-  fBrand.addEventListener('blur',   () => setTimeout(() => brandDropdown.classList.add('hidden'), 180));
+  fBrand.addEventListener('input', onBrandInput);
+  fBrand.addEventListener('focus', onBrandInput);
+  fBrand.addEventListener('blur',  () => setTimeout(() => brandDropdown.classList.add('hidden'), 180));
   document.addEventListener('click', e => {
     if (!e.target.closest('.brand-wrap')) brandDropdown.classList.add('hidden');
   });
@@ -142,6 +144,13 @@ function setupListeners() {
     wheyModal.classList.add('hidden');
     pendingSaveFn = null;
   });
+
+  // Product name toggle
+  scNameToggle.addEventListener('click', () => {
+    nameExpanded = !nameExpanded;
+    scName.classList.toggle('expanded', nameExpanded);
+    scNameToggle.classList.toggle('expanded', nameExpanded);
+  });
 }
 
 // ── TAB MANAGEMENT ───────────────────────────────────────────
@@ -150,19 +159,17 @@ function currentView() {
 }
 
 function switchTab(viewId) {
-  // Leaving leaderboard clears the new-product highlight
   if (currentView() === 'viewLB') newlyAddedId = null;
-
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById(viewId).classList.add('active');
   updateTabState(viewId);
-
   if (viewId === 'viewLB') renderLeaderboard();
+  // Re-animate scorecard when switching into it
+  if (viewId === 'viewScore' && lastSaved) renderScorecard(lastSaved);
 }
 
 function updateTabState(activeViewId) {
   [tabCalc, tabScore, tabLB].forEach(t => t.classList.remove('active', 'synced'));
-
   const tabMap = { viewCalc: tabCalc, viewScore: tabScore, viewLB: tabLB };
   if (tabMap[activeViewId]) tabMap[activeViewId].classList.add('active');
 
@@ -174,7 +181,6 @@ function updateTabState(activeViewId) {
     if (activeViewId === 'viewScore') { tabScore.classList.remove('synced'); tabScore.classList.add('active'); }
   }
 
-  // Connector arrow colour
   const connectorWrap = document.querySelector('.tab-connector');
   const lines = document.querySelectorAll('.connector-line');
   if (synced) {
@@ -190,9 +196,7 @@ function updateTabState(activeViewId) {
 function onBrandInput() {
   const q = fBrand.value.trim().toLowerCase();
   const matches = q ? allBrands.filter(b => b.toLowerCase().includes(q)) : allBrands;
-
   brandDropdown.innerHTML = '';
-
   if (!matches.length) {
     if (q) {
       const d = document.createElement('div');
@@ -206,7 +210,6 @@ function onBrandInput() {
     }
     return;
   }
-
   matches.slice(0, 12).forEach(b => {
     const d = document.createElement('div');
     d.className = 'brand-opt';
@@ -232,51 +235,36 @@ async function doScrape() {
   btnScrape.disabled = true;
   setScrapeStatus('Scraping page…', '');
   switchTab('viewCalc');
-
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id) throw new Error('No active tab');
-
-    await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      files: ['content/content.js']
-    }).catch(() => {});
-
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content/content.js'] }).catch(() => {});
     const results = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       func: () => typeof window._proScoreScrape === 'function' ? window._proScoreScrape() : null
     });
-
     const d = results?.[0]?.result;
     if (!d) throw new Error('Could not read page — refresh and try');
-
     pendingScrape = { ...d, id: Date.now().toString() };
-
-    setField(fBrand,   d.brand         ?? '', !!d.brand);
-    setField(fProduct, d.name          ?? '', !!d.name);
-    setField(fWeight,  d.weightGrams   ?? '', !!d.weightGrams);
-    setField(fPrice,   d.price         ?? '', !!d.price);
-    setField(fServing, d.servingSizeG  ?? '', !!d.servingSizeG);
+    setField(fBrand,   d.brand        ?? '', !!d.brand);
+    setField(fProduct, d.name         ?? '', !!d.name);
+    setField(fWeight,  d.weightGrams  ?? '', !!d.weightGrams);
+    setField(fPrice,   d.price        ?? '', !!d.price);
+    setField(fServing, d.servingSizeG ?? '', !!d.servingSizeG);
     fProtein.value = '';
     fProtein.classList.remove('autofilled');
     fProtein.classList.add('needs-input');
-
     if (d.brand) pickBrand(d.brand);
-
     const missing = [!d.weightGrams && 'weight', !d.price && 'price'].filter(Boolean);
-    if (missing.length) {
-      setScrapeStatus(`Partial scrape — enter ${missing.join(' & ')} + protein from label`, 'err');
-    } else {
-      setScrapeStatus('Scraped ✓ — enter protein & serving from nutrition label', 'ok');
-    }
-
+    setScrapeStatus(
+      missing.length ? `Partial scrape — enter ${missing.join(' & ')} + protein from label` : 'Scraped ✓ — enter protein & serving from nutrition label',
+      missing.length ? 'err' : 'ok'
+    );
     formDirty = true;
     updateTabState('viewCalc');
-
   } catch (e) {
     setScrapeStatus(e.message || 'Scrape failed', 'err');
   }
-
   btnScrape.disabled = false;
 }
 
@@ -300,11 +288,6 @@ function isLikelyNotWhey(name) {
   return NON_WHEY_RE.test(n) || !WHEY_RE.test(n);
 }
 
-function showWheyModal(onConfirm) {
-  wheyModal.classList.remove('hidden');
-  pendingSaveFn = onConfirm;
-}
-
 // ── CALCULATE & SAVE ─────────────────────────────────────────
 function doCalcAndSave(skipWheyCheck = false) {
   const a = parseFloat(fProtein.value);
@@ -312,17 +295,14 @@ function doCalcAndSave(skipWheyCheck = false) {
   const c = parseFloat(fWeight.value);
   const d = parseFloat(fPrice.value);
 
-  // Field validation
   const badFields = [[a, fProtein], [b, fServing], [c, fWeight], [d, fPrice]]
     .filter(([v]) => !v || v <= 0);
-
   if (badFields.length) {
     badFields.forEach(([, f]) => f.classList.add('needs-input'));
     showToast('Fill all 4 numeric fields');
     return;
   }
 
-  // Protein cannot exceed serving size
   if (a > b) {
     fProtein.classList.add('error');
     fServing.classList.add('error');
@@ -334,10 +314,10 @@ function doCalcAndSave(skipWheyCheck = false) {
     return;
   }
 
-  // Whey check
   const productName = fProduct.value.trim();
   if (!skipWheyCheck && isLikelyNotWhey(productName)) {
-    showWheyModal(() => doCalcAndSave(true));
+    wheyModal.classList.remove('hidden');
+    pendingSaveFn = () => doCalcAndSave(true);
     return;
   }
 
@@ -346,13 +326,12 @@ function doCalcAndSave(skipWheyCheck = false) {
   const valueRaw       = (totalProtein / d) * 1000;
 
   const product = {
-    id:         pendingScrape?.id    ?? Date.now().toString(),
-    name:       productName          || 'Unknown Product',
-    brand:      fBrand.value.trim()  || '',
-    url:        pendingScrape?.url   || '',
+    id:         pendingScrape?.id   ?? Date.now().toString(),
+    name:       productName         || 'Unknown Product',
+    brand:      fBrand.value.trim() || '',
+    url:        pendingScrape?.url  || '',
     source:     pendingScrape?.source || '',
-    siteLabel:  pendingScrape?.siteLabel
-                  || (pendingScrape?.source?.replace(/\.(com|in|co\.in|net|org).*$/, '') ?? ''),
+    siteLabel:  pendingScrape?.siteLabel || (pendingScrape?.source?.replace(/\.(com|in|co\.in|net|org).*$/, '') ?? ''),
     proteinPerServing: a,
     servingSizeG: b,
     weightGrams: c,
@@ -367,20 +346,31 @@ function doCalcAndSave(skipWheyCheck = false) {
 
   chrome.runtime.sendMessage({ action: 'saveProduct', product }, res => {
     if (!res?.ok) { showToast('Save failed'); return; }
-
     allProducts = res.products;
     const saved = allProducts.find(p => p.id === product.id) || product;
-    lastSaved = saved;
+    lastSaved    = saved;
     newlyAddedId = saved.id;
-    formDirty = false;
-
+    formDirty    = false;
     renderScorecard(saved);
     renderLeaderboard();
     showToast('Saved ✓');
     switchTab('viewScore');
-
     pendingScrape = { ...pendingScrape, id: product.id };
   });
+}
+
+// ── COUNT-UP ANIMATION ───────────────────────────────────────
+function animateValue(el, to, duration = 900) {
+  if (to == null || isNaN(to)) { el.textContent = '—'; return; }
+  const start = performance.now();
+  const tick = (now) => {
+    const t    = Math.min((now - start) / duration, 1);
+    const ease = 1 - Math.pow(1 - t, 3); // ease-out cubic
+    el.textContent = r1(to * ease);
+    if (t < 1) requestAnimationFrame(tick);
+    else el.textContent = r1(to);
+  };
+  requestAnimationFrame(tick);
 }
 
 // ── SCORECARD ────────────────────────────────────────────────
@@ -388,66 +378,74 @@ function renderScorecard(p) {
   if (!p) {
     scEmpty.classList.remove('hidden');
     scData.classList.add('hidden');
-    [proScoreVal, proScoreGrade, proteinScoreVal, proteinScoreGrade,
-     valueScoreVal, valueScoreGrade].forEach(el => el.textContent = '—');
-    // Reset gradient to flat brand orange
-    scoreMain.style.setProperty('--g-start', '#FFA14C');
-    scoreMain.style.setProperty('--g-mid',   '#FFA14C');
-    scoreMain.style.setProperty('--g-end',   '#FFA14C');
+    scoreShell.classList.add('hidden');
+    btnNewProduct.classList.add('hidden');
     return;
   }
 
   scEmpty.classList.add('hidden');
   scData.classList.remove('hidden');
+  scoreShell.classList.remove('hidden');
+  btnNewProduct.classList.remove('hidden');
 
+  // Product name (reset expand state)
+  nameExpanded = false;
+  scName.classList.remove('expanded');
+  scNameToggle.classList.remove('expanded');
   scName.textContent = (p.brand ? p.brand + ' · ' : '') + (p.name ?? '—');
+  // Show toggle arrow only when text is actually truncated
+  requestAnimationFrame(() => {
+    const overflows = scName.scrollHeight > scName.clientHeight + 2;
+    scNameToggle.classList.toggle('hidden', !overflows);
+  });
 
+  // Rank badge
   const rank = allProducts
     .slice().sort((a, b) => (b.proScore ?? 0) - (a.proScore ?? 0))
     .findIndex(x => x.id === p.id) + 1;
-
   scRankBadge.textContent = rank ? `#${rank}` : '';
   scRankBadge.className   = 'sc-rank' + (rank === 1 ? ' gold' : rank === 2 ? ' silver' : rank === 3 ? ' bronze' : '');
 
+  // Pills
   scPillPrice.textContent  = p.price      ? `₹${fmtNum(p.price)}`      : 'Price N/A';
   scPillWeight.textContent = p.weightGrams ? `${fmtNum(p.weightGrams)}g` : 'Weight N/A';
-
-  if (p.url) {
-    scPillLink.href = p.url;
-    scPillLink.classList.remove('hidden');
-  } else {
-    scPillLink.classList.add('hidden');
-  }
+  if (p.url) { scPillLink.href = p.url; scPillLink.classList.remove('hidden'); }
+  else { scPillLink.classList.add('hidden'); }
 
   const n = allProducts.length;
   scDataset.textContent = n > 1
     ? `Scored relative to ${n} products in your dataset`
     : 'Add more products for relative scoring';
 
-  // Scores
-  proScoreVal.textContent     = fmt1(p.proScore);
-  proteinScoreVal.textContent = fmt1(p.proteinScore);
-  valueScoreVal.textContent   = fmt1(p.valueScore);
-
-  // Individual grades — use individual fields, fall back to proGrade
+  // Individual grades
   const pg  = p.proGrade     ?? p.grade ?? 'Poor';
   const prg = p.proteinGrade ?? p.grade ?? 'Poor';
   const vg  = p.valueGrade   ?? p.grade ?? 'Poor';
 
-  proScoreGrade.textContent     = p.proScore != null ? pg.toUpperCase() : '—';
+  proScoreGrade.textContent     = p.proScore     != null ? pg.toUpperCase()  : '—';
   proScoreGrade.className       = 'score-grade grade-' + pg;
-
   proteinScoreGrade.textContent = p.proteinScore != null ? prg.toUpperCase() : '—';
   proteinScoreGrade.className   = 'sub-grade grade-' + prg;
-
-  valueScoreGrade.textContent   = p.valueScore != null ? vg.toUpperCase() : '—';
+  valueScoreGrade.textContent   = p.valueScore   != null ? vg.toUpperCase()  : '—';
   valueScoreGrade.className     = 'sub-grade grade-' + vg;
 
-  // Gradient: protein grade → proscore grade → value grade
-  const gc = (g) => GRADE_COLOR[g] || '#FFA14C';
-  scoreMain.style.setProperty('--g-start', gc(prg));
-  scoreMain.style.setProperty('--g-mid',   gc(pg));
-  scoreMain.style.setProperty('--g-end',   gc(vg));
+  // Gradient: reset to neutral instantly, then animate to grade colours
+  const gc = g => GRADE_COLOR[g] || '#FFA14C';
+  scoreShell.classList.add('no-transition');
+  scoreShell.style.setProperty('--g-start', '#FFA14C');
+  scoreShell.style.setProperty('--g-mid',   '#FFA14C');
+  scoreShell.style.setProperty('--g-end',   '#FFA14C');
+  // Force reflow so the instant-reset is painted before the transition re-enables
+  void scoreShell.offsetWidth;
+  scoreShell.classList.remove('no-transition');
+  scoreShell.style.setProperty('--g-start', gc(prg));
+  scoreShell.style.setProperty('--g-mid',   gc(pg));
+  scoreShell.style.setProperty('--g-end',   gc(vg));
+
+  // Count-up animations for score numbers
+  animateValue(proScoreVal,     p.proScore);
+  animateValue(proteinScoreVal, p.proteinScore);
+  animateValue(valueScoreVal,   p.valueScore);
 }
 
 // ── LEADERBOARD ──────────────────────────────────────────────
@@ -482,7 +480,6 @@ function renderLeaderboard() {
   sorted.forEach((p, i) => {
     const rank      = i + 1;
     const rankClass = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '';
-
     const siteLabel = p.siteLabel || p.source || '';
     const siteCell  = p.url
       ? `<a class="lb-site-link" href="${esc(p.url)}" target="_blank" title="${esc(p.url)}">🔗 ${esc(siteLabel)}</a>`
@@ -508,7 +505,6 @@ function renderLeaderboard() {
       <td>${siteCell}</td>
       <td><button class="lb-del" title="Delete">✕</button></td>
     `;
-
     tr.querySelector('.lb-del').addEventListener('click', () => deleteProduct(p.id));
     lbBody.appendChild(tr);
   });
@@ -519,8 +515,7 @@ function deleteProduct(id) {
     if (!res?.ok) return;
     allProducts = res.products;
     if (lastSaved?.id === id) {
-      lastSaved = null;
-      formDirty = false;
+      lastSaved = null; formDirty = false;
       renderScorecard(null);
       updateTabState('viewLB');
     }
@@ -532,10 +527,7 @@ function deleteProduct(id) {
 function doClearAll() {
   if (!confirm('Clear all saved products?')) return;
   chrome.runtime.sendMessage({ action: 'clearAll' }, () => {
-    allProducts  = [];
-    lastSaved    = null;
-    formDirty    = false;
-    newlyAddedId = null;
+    allProducts = []; lastSaved = null; formDirty = false; newlyAddedId = null;
     renderLeaderboard();
     renderScorecard(null);
     switchTab('viewCalc');
